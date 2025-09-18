@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>AR Фото-видео Client1</title>
+
+  <!-- A-Frame -->
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <!-- MindAR -->
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/aframe/mindar-image-aframe.prod.js"></script>
+
+  <style>
+    body { margin: 0; overflow: hidden; font-family: sans-serif; background: black; }
+    button {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 14px 28px;
+      font-size: clamp(14px, 2vw, 18px);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      z-index: 99;
+      cursor: pointer;
+    }
+    #startButton { top: 40%; background: #1e90ff; }
+    #unmuteButton { bottom: 120px; background: #28a745; display: none; }
+    #pauseButton { bottom: 70px; background: #ff6600; display: none; }
+    #restartButton { bottom: 20px; background: #444; display: none; }
+    #warning {
+      position: absolute;
+      bottom: 12px; left: 50%;
+      transform: translateX(-50%);
+      font-size: clamp(12px, 2vw, 14px);
+      color: #ffcc00;
+      background: rgba(0,0,0,0.6);
+      padding: 6px 10px;
+      border-radius: 6px;
+      display: none;
+      z-index: 99;
+      max-width: 90%;
+      text-align: center;
+    }
+    #loader {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: clamp(16px, 3vw, 22px);
+      color: white;
+      z-index: 99;
+      display: none;
+    }
+    a-scene { display: none; }
+  </style>
+</head>
+<body>
+
+<button id="startButton">Нажмите, чтобы включить камеру</button>
+<button id="unmuteButton">🔊 Включить звук</button>
+<button id="pauseButton">⏸ Пауза</button>
+<button id="restartButton">🔄 Перезапустить AR</button>
+<div id="warning"></div>
+<div id="loader">⏳ Загрузка...</div>
+
+<a-scene
+  mindar-image="imageTargetSrc: ./client1.mind; autoStart: false;"
+  embedded
+  color-space="sRGB"
+  renderer="colorManagement: true, physicallyCorrectLights"
+  vr-mode-ui="enabled: false"
+  device-orientation-permission-ui="enabled: false">
+
+  <a-assets>
+    <video id="video" src="./client1.mp4" preload="auto" loop playsinline></video>
+  </a-assets>
+
+  <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+  <a-entity id="targetEntity" mindar-image-target="targetIndex: 0">
+    <a-video id="videoPlane" src="#video" width="1" height="1" position="0 0 0"></a-video>
+  </a-entity>
+</a-scene>
+
+<script>
+  const startButton = document.getElementById('startButton');
+  const unmuteButton = document.getElementById('unmuteButton');
+  const pauseButton = document.getElementById('pauseButton');
+  const restartButton = document.getElementById('restartButton');
+  const warning = document.getElementById('warning');
+  const loader = document.getElementById('loader');
+  const scene = document.querySelector('a-scene');
+  const videoEl = document.getElementById('video');
+  const videoPlane = document.getElementById('videoPlane');
+  const targetEntity = document.getElementById('targetEntity');
+
+  const isiOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  let playTimeout = null;
+  let isPlaying = false;
+
+  async function checkCamera() {
+    const constraintsHD = {
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        frameRate: { ideal: 30 }
+      },
+      audio: false
+    };
+    try {
+      return await navigator.mediaDevices.getUserMedia(constraintsHD);
+    } catch {
+      return await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: 1280, height: 720 },
+        audio: false
+      });
+    }
+  }
+
+  startButton.addEventListener('click', async () => {
+    try {
+      loader.style.display = 'block';
+      const stream = await checkCamera();
+      stream.getTracks().forEach(t => t.stop());
+
+      startButton.style.display = 'none';
+      scene.style.display = 'block';
+      restartButton.style.display = 'block';
+
+      await scene.components["mindar-image"].start();
+
+      videoEl.load();
+
+      if (isiOS) unmuteButton.style.display = 'block';
+
+      loader.style.display = 'none';
+    } catch (err) {
+      loader.style.display = 'none';
+      warning.textContent = "❌ Не удалось включить камеру. Разрешите доступ и попробуйте снова.";
+      warning.style.display = 'block';
+      console.error(err);
+    }
+  });
+
+  videoEl.addEventListener('loadedmetadata', () => {
+    const vw = videoEl.videoWidth;
+    const vh = videoEl.videoHeight;
+    if (vw && vh) {
+      const aspect = vw / vh;
+      if (aspect >= 1) {
+        videoPlane.setAttribute('width', 1);
+        videoPlane.setAttribute('height', 1 / aspect);
+      } else {
+        videoPlane.setAttribute('height', 1);
+        videoPlane.setAttribute('width', aspect);
+      }
+    }
+  });
+
+  videoEl.addEventListener('error', () => {
+    warning.textContent = "❌ Ошибка загрузки видео. Проверьте файл.";
+    warning.style.display = 'block';
+  });
+
+  targetEntity.addEventListener('targetFound', () => {
+    if (isPlaying) return;
+    playTimeout = setTimeout(() => {
+      videoEl.muted = false;
+      videoEl.currentTime = 0;
+      videoEl.play().then(() => {
+        isPlaying = true;
+        pauseButton.style.display = 'block';
+        pauseButton.textContent = "⏸ Пауза";
+      }).catch(() => {
+        unmuteButton.style.display = 'block';
+      });
+    }, 1000);
+  });
+
+  targetEntity.addEventListener('targetLost', () => {
+    clearTimeout(playTimeout);
+    videoEl.pause();
+    videoEl.currentTime = 0;
+    isPlaying = false;
+    pauseButton.style.display = 'none';
+  });
+
+  unmuteButton.addEventListener('click', () => {
+    videoEl.muted = false;
+    videoEl.play().then(() => {
+      unmuteButton.style.display = 'none';
+      isPlaying = true;
+      pauseButton.style.display = 'block';
+    });
+  });
+
+  pauseButton.addEventListener('click', () => {
+    if (isPlaying) {
+      videoEl.pause();
+      pauseButton.textContent = "▶️ Продолжить";
+      isPlaying = false;
+    } else {
+      videoEl.play();
+      pauseButton.textContent = "⏸ Пауза";
+      isPlaying = true;
+    }
+  });
+
+  restartButton.addEventListener('click', () => {
+    location.reload();
+  });
+
+  window.addEventListener('beforeunload', () => {
+    if (scene.components["mindar-image"]) scene.components["mindar-image"].stop();
+    videoEl.pause();
+    videoEl.src = "";
+  });
+</script>
+
+</body>
+</html>
