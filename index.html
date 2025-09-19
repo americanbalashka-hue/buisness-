@@ -10,7 +10,7 @@
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.4/dist/mindar-image-aframe.prod.js"></script>
 
   <style>
-    body { margin: 0; overflow: hidden; font-family: sans-serif; background: black; }
+    body { margin: 0; overflow: hidden; background: black; }
     #startButton {
       position: absolute;
       top: 50%; left: 50%;
@@ -31,8 +31,8 @@
 
 <button id="startButton">Нажмите, чтобы включить камеру</button>
 
-<a-scene 
-  mindar-image="imageTargetSrc: ./client1.mind;" 
+<a-scene
+  mindar-image="imageTargetSrc: ./client1.mind;"
   embedded
   color-space="sRGB"
   renderer="colorManagement: true, physicallyCorrectLights"
@@ -40,13 +40,13 @@
   device-orientation-permission-ui="enabled: false">
 
   <a-assets>
-    <video id="video1" src="./client1.mp4" preload="auto" playsinline></video>
+    <video id="video1" src="./client1.mp4" preload="auto" playsinline webkit-playsinline></video>
   </a-assets>
 
   <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
   <a-entity mindar-image-target="targetIndex: 0">
-    <a-video id="videoPlane" src="#video1" width="1" height="0.56"></a-video>
+    <a-video id="videoPlane" src="#video1" visible="false"></a-video>
   </a-entity>
 </a-scene>
 
@@ -56,51 +56,63 @@
   const videoEl = document.getElementById('video1');
   const videoPlane = document.getElementById('videoPlane');
   const targetEntity = document.querySelector('[mindar-image-target]');
-
   let isPlaying = false;
 
   button.addEventListener('click', async () => {
     try {
       // Разрешение камеры
-      const stream = await navigator.mediaDevices.getUserMedia({
+      await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
-          width: { min: 1280, ideal: 1920 },
-          height: { min: 720, ideal: 1080 },
-          frameRate: { ideal: 30 }
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         },
         audio: false
       });
 
-      // Подготавливаем видео для iOS
-      videoEl.muted = false;
-      videoEl.loop = true;
-      await videoEl.play();   // один раз запустим
-      videoEl.pause();        // сразу остановим
+      // iOS: запуск по клику
+      videoEl.muted = true;
+      await videoEl.play();
+      videoEl.pause();
       videoEl.currentTime = 0;
+      videoEl.muted = false;
 
-      // Скрываем кнопку и показываем сцену
+      // Показываем сцену
       button.style.display = 'none';
       scene.style.display = 'block';
     } catch (err) {
-      alert('Не удалось включить камеру. Проверь разрешения.');
+      alert('❌ Не удалось включить камеру. Проверьте разрешения.');
       console.error(err);
     }
   });
 
-  // Когда фото найдено → запускаем видео со звуком
+  // Подгоняем размеры под пропорции видео
+  videoEl.addEventListener('loadedmetadata', () => {
+    const aspect = videoEl.videoWidth / videoEl.videoHeight;
+    if (aspect > 1) {
+      videoPlane.setAttribute('width', 1);
+      videoPlane.setAttribute('height', 1 / aspect);
+    } else {
+      videoPlane.setAttribute('height', 1);
+      videoPlane.setAttribute('width', aspect);
+    }
+  });
+
+  // Когда фото найдено
   targetEntity.addEventListener('targetFound', () => {
     if (!isPlaying) {
+      videoPlane.setAttribute('visible', 'true');
       videoEl.currentTime = 0;
       videoEl.play();
       isPlaying = true;
     }
   });
 
-  // Когда фото потеряно → останавливаем
+  // Когда фото потеряно
   targetEntity.addEventListener('targetLost', () => {
     videoEl.pause();
     videoEl.currentTime = 0;
+    videoPlane.setAttribute('visible', 'false');
     isPlaying = false;
   });
 </script>
