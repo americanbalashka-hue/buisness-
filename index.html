@@ -13,18 +13,21 @@
     body {
       margin: 0;
       background: black;
-      display: flex;
-      justify-content: center;
-      align-items: center;
       height: 100vh;
+      width: 100vw;
       overflow: hidden;
     }
     #container {
-      position: relative;
-      width: 100%;
-      max-width: 100vh; /* чтобы на узких экранах не ломалось */
-      aspect-ratio: 16/9; /* фиксируем 16:9 */
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
       background: black;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
     }
     #startButton {
       position: absolute;
@@ -42,6 +45,7 @@
     a-scene {
       width: 100%;
       height: 100%;
+      object-fit: cover; /* растягиваем как видео */
     }
   </style>
 </head>
@@ -72,14 +76,13 @@
 
 <script>
   const button = document.getElementById('startButton');
-  const scene = document.querySelector('a-scene');
   const videoEl = document.getElementById('video1');
   const targetEntity = document.querySelector('[mindar-image-target]');
   let isPlaying = false;
 
   button.addEventListener('click', async () => {
     try {
-      // iOS: разблокировка воспроизведения
+      // iOS: разблокировка видео
       videoEl.muted = false;
       await videoEl.play();
       videoEl.pause();
