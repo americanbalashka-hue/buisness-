@@ -63,7 +63,7 @@
     device-orientation-permission-ui="enabled: false">
 
     <a-assets>
-      <video id="video1" src="./client1.mp4" preload="auto" playsinline></video>
+      <video id="video1" src="./client1.mp4" preload="auto" playsinline webkit-playsinline></video>
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
@@ -80,10 +80,11 @@
   const targetEntity = document.querySelector('[mindar-image-target]');
   let isPlaying = false;
 
+  // Кнопка нужна только для разблокировки видео
   button.addEventListener('click', async () => {
     try {
-      // iOS: разблокировка видео
-      videoEl.muted = false;
+      // "Тихий" запуск для iOS, чтобы браузер разрешил воспроизведение
+      videoEl.muted = true;
       await videoEl.play();
       videoEl.pause();
       videoEl.currentTime = 0;
@@ -95,14 +96,17 @@
     }
   });
 
+  // Когда фото найдено → запускаем видео со звуком
   targetEntity.addEventListener('targetFound', () => {
     if (!isPlaying) {
+      videoEl.muted = false;  // включаем звук только здесь
       videoEl.currentTime = 0;
       videoEl.play();
       isPlaying = true;
     }
   });
 
+  // Когда фото потеряно → останавливаем
   targetEntity.addEventListener('targetLost', () => {
     videoEl.pause();
     videoEl.currentTime = 0;
