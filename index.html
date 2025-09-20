@@ -41,10 +41,11 @@
       left: 0;
     }
 
-    /* делаем фон камеры 16:9, без искажений */
+    /* Камера будет тянуться на весь экран, но в 16:9 */
     video, canvas {
       object-fit: cover !important;
-      aspect-ratio: 16/9;
+      width: 100% !important;
+      height: 100% !important;
     }
   </style>
 </head>
@@ -89,7 +90,7 @@
         audio: false
       });
 
-      // Подготовка для iOS
+      // iOS fix
       videoEl.muted = false;
       videoEl.loop = true;
       await videoEl.play();
@@ -104,7 +105,6 @@
     }
   });
 
-  // Когда фото найдено → включаем видео
   targetEntity.addEventListener('targetFound', () => {
     if (!isPlaying) {
       videoEl.currentTime = 0;
@@ -113,23 +113,11 @@
     }
   });
 
-  // Когда фото потеряно → стопаем
   targetEntity.addEventListener('targetLost', () => {
     videoEl.pause();
     videoEl.currentTime = 0;
     isPlaying = false;
   });
-
-  // Подгоняем сцену под ориентацию
-  function resizeScene() {
-    const sceneEl = document.querySelector('a-scene');
-    sceneEl.style.width = window.innerWidth + "px";
-    sceneEl.style.height = window.innerHeight + "px";
-  }
-
-  window.addEventListener("resize", resizeScene);
-  window.addEventListener("orientationchange", resizeScene);
-  resizeScene();
 </script>
 
 </body>
